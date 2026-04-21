@@ -1,5 +1,1 @@
-fastapi
-uvicorn
-python-socketio
 httpx
-jinja2

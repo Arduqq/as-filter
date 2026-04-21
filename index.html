@@ -3,216 +3,483 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Subreddit Mention Tracker: r/AntiSemitismInReddit</title>
-    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <title>Reddit Antisemitism Dashboard</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: #f6f7f8; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
-        .container { width: 95%; max-width: 1200px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        h1 { color: #1a1a1b; margin-bottom: 5px; }
-        p.subtitle { color: #7c7c7c; margin-bottom: 20px; }
-        .stats { display: flex; gap: 20px; margin-bottom: 20px; padding: 15px; background: #f8f9fa; border-radius: 5px; flex-wrap: wrap; }
-        .stat-item { display: flex; flex-direction: column; min-width: 150px; }
-        .stat-label { font-size: 0.8rem; color: #7c7c7c; text-transform: uppercase; }
-        .stat-value { font-size: 1.5rem; font-weight: bold; color: #0079d3; }
-        .controls { margin-bottom: 20px; display: flex; gap: 10px; flex-wrap: wrap; }
-        button { padding: 10px 20px; font-size: 0.9rem; cursor: pointer; border: none; border-radius: 4px; transition: background 0.2s; font-weight: 600; }
-        .btn-start { background: #0079d3; color: white; }
-        .btn-reset { background: #eaedef; color: #1a1a1b; }
-        .btn-export { background: #00a65a; color: white; }
-        .btn-open { background: #ff4500; color: white; }
-        
-        #chart-section { margin-bottom: 40px; width: 100%; min-height: 500px; max-height: 800px; overflow-y: auto; border: 1px solid #eee; }
-        .chart-wrapper { position: relative; width: 100%; }
-        
-        .list-section { border-top: 1px solid #eee; padding-top: 20px; }
-        .scroll-table { max-height: 400px; overflow-y: auto; border: 1px solid #eee; border-radius: 4px; }
-        table { width: 100%; border-collapse: collapse; }
-        th, td { text-align: left; padding: 12px; border-bottom: 1px solid #eee; }
-        th { background: #f8f9fa; position: sticky; top: 0; }
-        tr:hover { background: #fcfcfc; }
-        .sub-link { color: #0079d3; cursor: pointer; text-decoration: underline; font-weight: bold; }
+        :root {
+            --bg-color: #000000;
+            --card-bg: #000000;
+            --accent-color: #ffffff;
+            --text-primary: #ffffff;
+            --text-secondary: #aaaaaa;
+            --border-color: #222222;
+        }
 
-        /* Modal Styles */
-        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); }
-        .modal-content { background: white; margin: 5% auto; padding: 20px; border-radius: 8px; width: 80%; max-width: 800px; max-height: 80%; overflow-y: auto; position: relative; }
-        .close-btn { position: absolute; right: 20px; top: 15px; font-size: 1.5rem; cursor: pointer; color: #666; }
-        .report-post { border-bottom: 1px solid #eee; padding: 15px 0; }
-        .report-post:last-child { border-bottom: none; }
-        .report-title { font-weight: bold; font-size: 1.1rem; color: #1a1a1b; display: block; margin-bottom: 5px; }
-        .report-link { color: #0079d3; text-decoration: none; font-size: 0.9rem; }
-        .report-link:hover { text-decoration: underline; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            margin: 0; padding: 40px;
+            display: flex; flex-direction: column; align-items: center;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .container { width: 100%; max-width: 1200px; }
+
+        header { margin-bottom: 60px; text-align: left; border-bottom: 8px solid var(--accent-color); padding-bottom: 20px; width: 100%; }
+        h1 { margin: 0; font-size: 4rem; font-weight: 900; letter-spacing: -0.05em; text-transform: uppercase; line-height: 0.9; }
+        .subtitle { color: var(--text-secondary); margin-top: 15px; font-size: 1.2rem; font-weight: 400; max-width: 600px; }
+
+        .lead-content { margin-bottom: 60px; line-height: 1.6; }
+        .main-explanation { font-size: 1.5rem; font-weight: 400; color: var(--text-primary); margin-bottom: 40px; border-left: 2px solid var(--border-color); padding-left: 30px; }
+        .user-guidance { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 30px; }
+        .guide-item { border-top: 1px solid var(--border-color); padding-top: 20px; }
+        .guide-item h3 { margin: 0 0 10px; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent-color); font-weight: 700; }
+        .guide-item p { margin: 0; font-size: 0.9rem; color: var(--text-secondary); }
+
+        .dashboard-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1px; background: var(--border-color); border: 1px solid var(--border-color); margin-bottom: 60px; }
+        .stat-card { background: var(--bg-color); padding: 40px; }
+        .stat-label { color: var(--text-secondary); font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.2em; margin-bottom: 10px; display: block; }
+        .stat-value { font-size: 3rem; font-weight: 900; color: var(--text-primary); }
+        .stat-sub { font-size: 0.875rem; color: var(--text-secondary); margin-top: 10px; font-weight: 700; }
+
+        .content-layout { display: grid; grid-template-columns: 1fr 350px; gap: 60px; }
+        @media (max-width: 1000px) { .content-layout { grid-template-columns: 1fr; } }
+
+        .card { background: var(--bg-color); border: 1px solid var(--border-color); padding: 40px; margin-bottom: 40px; }
+        .card-title { font-size: 1.5rem; font-weight: 900; margin: 0 0 30px; text-transform: uppercase; letter-spacing: -0.02em; border-left: 10px solid var(--accent-color); padding-left: 20px; }
+
+        #chart-section { height: 600px; overflow: hidden; position: relative; }
+        .chart-wrapper { position: relative; height: 100%; width: 100%; }
+
+        .table-container { max-height: 800px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--accent-color) var(--bg-color); }
+        table { width: 100%; border-collapse: collapse; }
+        th { text-align: left; color: var(--text-secondary); font-size: 0.7rem; text-transform: uppercase; padding: 15px; border-bottom: 2px solid var(--border-color); letter-spacing: 0.1em; }
+        td { padding: 20px 15px; border-bottom: 1px solid var(--border-color); font-size: 1.1rem; font-weight: 400; vertical-align: middle; }
+        tr:hover { background: #111111; }
+        .sub-link { background: none; border: none; border-bottom: 2px solid var(--border-color); padding: 0; color: var(--text-primary); cursor: pointer; font-weight: 900; font-size: 1.1rem; font-family: inherit; text-decoration: none; transition: all 0.2s; flex: none; }
+        .sub-link:hover, .sub-link:focus-visible { border-bottom-color: var(--accent-color); color: var(--accent-color); outline: none; }
+        .score-cell { white-space: nowrap; }
+        .score-num { font-size: 0.9rem; color: var(--text-secondary); font-weight: 700; }
+        .score-bar-track { height: 3px; background: var(--border-color); margin-top: 5px; width: 80px; }
+        .score-bar-fill { height: 100%; background: var(--text-secondary); transition: width 0.4s ease; }
+
+        .methodology p { font-size: 1rem; color: var(--text-secondary); line-height: 1.6; margin-bottom: 30px; }
+        .tag { background: var(--accent-color); color: var(--bg-color); padding: 4px 10px; font-size: 0.7rem; font-weight: 900; text-transform: uppercase; margin-bottom: 15px; display: inline-block; }
+
+        .btn-group { display: flex; gap: 20px; margin-bottom: 60px; width: 100%; }
+        button { flex: 1; padding: 20px; font-size: 0.9rem; cursor: pointer; border: 2px solid var(--accent-color); transition: all 0.2s; font-weight: 900; text-transform: uppercase; letter-spacing: 0.1em; }
+        .btn-primary { background: var(--accent-color); color: var(--bg-color); }
+        .btn-secondary { background: var(--bg-color); color: var(--accent-color); }
+        .btn-primary:hover { background: var(--bg-color); color: var(--accent-color); }
+        .btn-secondary:hover { background: var(--accent-color); color: var(--bg-color); }
+        a.btn-primary { display: flex; align-items: center; justify-content: center; text-decoration: none; box-sizing: border-box; flex: 1; padding: 20px; font-size: 0.9rem; font-family: inherit; font-weight: 900; text-transform: uppercase; letter-spacing: 0.1em; border: 2px solid var(--accent-color); transition: all 0.2s; cursor: pointer; }
+        a.btn-primary:hover { background: var(--bg-color); color: var(--accent-color); }
+
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); }
+        .modal-content { background: var(--bg-color); margin: 2% auto; padding: 60px; border: 1px solid var(--border-color); width: 90%; max-width: 900px; max-height: 90%; overflow-y: auto; }
+        .modal-chart-section { margin-bottom: 50px; }
+        .modal-section-label { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.15em; color: var(--text-secondary); margin-bottom: 15px; }
+        .modal-chart-wrapper { position: relative; height: 180px; }
+        .report-post { padding: 25px 0; border-bottom: 1px solid var(--border-color); }
+        .report-post.is-archived { padding-left: 20px; border-left: 3px solid #555; }
+        .report-title { font-weight: 700; font-size: 1.2rem; color: var(--text-primary); margin-bottom: 12px; display: block; line-height: 1.3; }
+        .report-post.is-archived .report-title { color: #aaaaaa; }
+        .post-meta { display: flex; gap: 24px; align-items: center; margin-bottom: 15px; flex-wrap: wrap; }
+        .post-meta-item { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-secondary); }
+        .post-meta-item span { color: var(--text-primary); margin-left: 6px; }
+        .badge-archived { background: #1a1a1a; color: #aaaaaa; padding: 3px 10px; font-size: 0.65rem; font-weight: 900; text-transform: uppercase; letter-spacing: 0.1em; border: 1px solid #444; }
+        .report-link { color: var(--text-secondary); text-decoration: none; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 900; border: 1px solid var(--border-color); padding: 8px 15px; display: inline-block; transition: all 0.2s; }
+        .report-link:hover { border-color: var(--accent-color); color: var(--accent-color); }
+        .close-btn { float: right; cursor: pointer; color: var(--text-primary); font-size: 2rem; font-weight: 900; background: none; border: none; padding: 0; line-height: 1; flex: none; }
+
+        #loading { text-align: center; padding: 80px; color: var(--text-secondary); font-size: 1.2rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.2em; }
+        #error-msg { display: none; text-align: center; padding: 80px; color: #ff4444; font-size: 1rem; font-weight: 700; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>r/AntiSemitismInReddit Tracker</h1>
-        <p class="subtitle">Real-time analysis of subreddits mentioned in post titles.</p>
-        
-        <div class="stats">
-            <div class="stat-item">
-                <span class="stat-label">Posts Processed</span>
-                <span id="processed-count" class="stat-value">0</span>
-            </div>
-            <div class="stat-item">
-                <span class="stat-label">Unique Subreddits</span>
-                <span id="subreddit-count" class="stat-value">0</span>
-            </div>
-            <div class="stat-item">
-                <span class="stat-label">Status</span>
-                <span id="status-text" class="stat-value" style="font-size: 1.1rem; color: #666;">Ready</span>
-            </div>
-        </div>
+        <header>
+            <h1>Reddit Antisemitism<br>Dashboard</h1>
+            <p class="subtitle">An audit of r/AntiSemitismInReddit to identify recurrent reports of antisemitism on various subreddits.</p>
+        </header>
 
-        <div class="controls">
-            <button class="btn-start" onclick="startScan()">Start Full Scan</button>
-            <button class="btn-export" onclick="exportTxt()">Export to TXT</button>
-            <button class="btn-open" onclick="openAllInTabs()">Open All in Tabs (Batch 10)</button>
-            <button class="btn-reset" onclick="resetData()">Reset</button>
-        </div>
+        <section class="lead-content" aria-label="About this dashboard">
+            <p class="main-explanation">
+                This dashboard is a moderation utility designed to empower users to remove themselves from spaces frequently reported as featuring antisemitic content. Posts from <strong>r/AntiSemitismInReddit</strong> are analyzed to identify subreddits that frequently host antisemitic content. This tool is not intended to isolate you from ongoing debate, but to provide objective data for you to <strong>moderate your own experience</strong>. Use it to identify hotspots and manually mute subreddits that do not align with your safety standards.
+            </p>
+            <div class="user-guidance">
+                <div class="guide-item">
+                    <h3>1. Browse the Data</h3>
+                    <p>The full historical archive of r/AntiSemitismInReddit has been processed and is displayed below.</p>
+                </div>
+                <div class="guide-item">
+                    <h3>2. Verify Evidence</h3>
+                    <p>Click any <b>Subreddit Name</b> to open a report showing the exact posts that triggered the mention. Read titles with care — not all spaces are inherently antisemitic.</p>
+                </div>
+                <div class="guide-item">
+                    <h3>3. Take Action</h3>
+                    <p>Use the <b>Review</b> button to visit a subreddit and decide if you wish to mute it.</p>
+                </div>
+            </div>
+        </section>
 
-        <div id="chart-section">
-            <div class="chart-wrapper" id="chart-parent">
-                <canvas id="mentionsChart"></canvas>
+        <div id="loading" role="status" aria-live="polite">Loading dataset...</div>
+        <div id="error-msg" role="alert">Failed to load data.json — run the scraper first.</div>
+
+        <main id="main-content" style="display:none; width:100%;">
+            <div class="dashboard-grid">
+                <div class="stat-card">
+                    <span class="stat-label">Archive Coverage</span>
+                    <div class="stat-value" id="date-range">—</div>
+                    <div class="stat-sub" id="generated-at">—</div>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">Posts Collected</span>
+                    <div class="stat-value" id="raw-count">0</div>
+                    <div class="stat-sub">From r/AntiSemitismInReddit</div>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">Removed &amp; Filtered</span>
+                    <div class="stat-value" id="removed-count">0</div>
+                    <div class="stat-sub">Posts excluded (mod-removed)</div>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">Posts Displayed</span>
+                    <div class="stat-value" id="processed-count">0</div>
+                    <div class="stat-sub" id="archived-sub">—</div>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">Subreddits Flagged</span>
+                    <div class="stat-value" id="subreddit-count">0</div>
+                    <div class="stat-sub">Unique spaces reported</div>
+                </div>
+            </div>
+
+            <div class="btn-group">
+                <a class="btn-primary" href="data.json" download>Download Dataset (JSON)</a>
+                <button class="btn-secondary" onclick="exportTxt()">Export Subreddit List (TXT)</button>
+                <button class="btn-secondary" onclick="openAllInTabs()">Bulk Open (Top 10)</button>
+            </div>
+
+            <div class="content-layout">
+                <div class="main-col">
+                    <div class="card">
+                        <h2 class="card-title">Frequency Leaderboard</h2>
+                        <div id="chart-section">
+                            <div class="chart-wrapper"><canvas id="mentionsChart" role="img" aria-label="Horizontal bar chart showing the top 50 subreddits by number of antisemitism reports"></canvas></div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <h2 class="card-title">Full Subreddit Registry</h2>
+                        <div class="table-container">
+                            <table id="full-list-table">
+                                <thead><tr><th scope="col">Subreddit</th><th scope="col">Reports</th><th scope="col">Total Upvotes</th><th scope="col">Last Report</th><th scope="col">Reddit</th></tr></thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="side-col">
+                    <div class="card methodology">
+                        <h2 class="card-title">Data Integrity</h2>
+                        <span class="tag">Source</span>
+                        <p>PullPush API — archives Reddit submissions beyond the native 1k-post cap. Full history from <strong id="m-from">—</strong> to <strong id="m-to">—</strong>.</p>
+                        <span class="tag">Filtering</span>
+                        <p><strong id="m-removed">—</strong> posts excluded from display because they were removed by moderators or Reddit before this dataset was compiled.</p>
+                        <span class="tag">Archived Posts</span>
+                        <p><strong id="m-archived">—</strong> of the displayed posts are archived — meaning Reddit has locked them from new activity. They are shown with a grey border and dimmed text.</p>
+                        <span class="tag">Algorithm</span>
+                        <p>Subreddit names are extracted from post titles using a regex negative-lookbehind pattern, catching mentions in parentheses, after commas, and in other non-spaced contexts that simpler patterns miss.</p>
+                        <span class="tag">Transparency</span>
+                        <p>Every entry links to its original Reddit post. The underlying dataset is downloadable in full.</p>
+                    </div>
+                </div>
             </div>
         </div>
-
-        <div class="list-section">
-            <h3>Full Subreddit List</h3>
-            <div class="scroll-table">
-                <table id="full-list-table">
-                    <thead>
-                        <tr>
-                            <th>Subreddit</th>
-                            <th>Mentions</th>
-                            <th>Action</th>
-                        </tr>
-                    </thead>
-                    <tbody></tbody>
-                </table>
-            </div>
-        </div>
-    </div>
+    </main>
 
     <!-- Modal -->
-    <div id="reportModal" class="modal">
+    <div id="reportModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
         <div class="modal-content">
-            <span class="close-btn" onclick="closeModal()">&times;</span>
-            <h2 id="modalTitle">Transparency Report: r/</h2>
+            <button class="close-btn" onclick="closeModal()" aria-label="Close report">CLOSE //</button>
+            <h2 id="modalTitle" style="font-size: 2.5rem; font-weight: 900; margin-top:0">POST REPORT</h2>
+            <div class="modal-chart-section">
+                <h3 class="modal-section-label">Posts Over Time</h3>
+                <div class="modal-chart-wrapper"><canvas id="modalChart" role="img" aria-label="Timeline chart of posts over time"></canvas></div>
+            </div>
+            <h3 class="modal-section-label" id="modal-posts-label">All Posts</h3>
             <div id="modalBody"></div>
         </div>
     </div>
 
     <script>
-        const socket = io();
-        let chart;
-        let currentSubreddits = [];
+        let allData = null;
+        let chart = null;
+        let modalChart = null;
 
-        // Initialize Chart
+        // --- Chart ---
         const ctx = document.getElementById('mentionsChart').getContext('2d');
         chart = new Chart(ctx, {
             type: 'bar',
-            data: { labels: [], datasets: [{ label: 'Mentions', data: [], backgroundColor: '#0079d3', borderRadius: 4 }] },
+            data: { labels: [], datasets: [{ label: 'Mentions', data: [], backgroundColor: '#FFFFFF', borderRadius: 0, hoverBackgroundColor: '#AAAAAA' }] },
             options: {
                 indexAxis: 'y', responsive: true, maintainAspectRatio: false,
-                scales: { x: { beginAtZero: true, grid: { display: false } }, y: { grid: { display: false } } },
-                plugins: { legend: { display: false }, title: { display: true, text: 'Mention Frequency' } },
+                scales: {
+                    x: { beginAtZero: true, grid: { color: '#222' }, ticks: { color: '#888', font: { weight: 'bold' } } },
+                    y: { grid: { display: false }, ticks: { color: '#FFF', font: { size: 12, weight: 'bold' } } }
+                },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: { backgroundColor: '#000', titleColor: '#FFF', bodyColor: '#888', borderColor: '#222', borderWidth: 1 }
+                },
                 onClick: (e, elements) => {
                     if (elements.length > 0) {
-                        const index = elements[0].index;
-                        const label = chart.data.labels[index];
+                        const label = chart.data.labels[elements[0].index];
                         showReport(label.replace('r/', ''));
                     }
                 }
             }
         });
 
-        function startScan() {
-            socket.emit('start_scan');
-            document.querySelector('.btn-start').disabled = true;
-            document.querySelector('.btn-start').style.opacity = 0.5;
-        }
-
-        function resetData() {
-            if (confirm("Reset all collected data?")) {
-                socket.emit('reset_data');
-                document.querySelector('.btn-start').disabled = false;
-                document.querySelector('.btn-start').style.opacity = 1;
-                document.querySelector('#full-list-table tbody').innerHTML = '';
-                document.getElementById('chart-parent').style.height = "500px";
+        // --- Data loading ---
+        async function init() {
+            try {
+                const res = await fetch('data.json');
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                allData = await res.json();
+                render(allData);
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('main-content').style.display = 'block';
+            } catch (e) {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('error-msg').style.display = 'block';
+                console.error(e);
             }
         }
 
-        function exportTxt() { window.open('/export', '_blank'); }
-        function openSubreddit(name) { window.open(`https://www.reddit.com/r/${name}`, '_blank'); }
+        function render(data) {
+            // Stats
+            document.getElementById('raw-count').textContent = (data.raw_posts_collected || data.total_posts).toLocaleString();
+            document.getElementById('removed-count').textContent = (data.removed_filtered || 0).toLocaleString();
+            document.getElementById('processed-count').textContent = data.total_posts.toLocaleString();
+            document.getElementById('subreddit-count').textContent = data.total_subreddits.toLocaleString();
+
+            const archivedPct = data.archived_posts && data.total_posts
+                ? Math.round(data.archived_posts / data.total_posts * 100) : 0;
+            document.getElementById('archived-sub').textContent =
+                `${(data.archived_posts || 0).toLocaleString()} archived (${archivedPct}%)`;
+
+            const dr = data.date_range;
+            document.getElementById('date-range').textContent = dr && dr.from && dr.to
+                ? dr.from.slice(0, 4) + ' – ' + dr.to.slice(0, 4) : '—';
+
+            const updated = new Date(data.generated_at);
+            document.getElementById('generated-at').textContent = 'Updated ' +
+                updated.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+
+            // Methodology panel
+            if (dr && dr.from) document.getElementById('m-from').textContent = dr.from;
+            if (dr && dr.to)   document.getElementById('m-to').textContent   = dr.to;
+            document.getElementById('m-removed').textContent  = (data.removed_filtered || 0).toLocaleString();
+            document.getElementById('m-archived').textContent = (data.archived_posts || 0).toLocaleString();
+
+            // Chart — top 50
+            const top50 = data.subreddits.slice(0, 50);
+            chart.data.labels = top50.map(s => 'r/' + s.name);
+            chart.data.datasets[0].data = top50.map(s => s.count);
+            chart.update('none');
+
+            // Table — full list
+            const maxScore = Math.max(...data.subreddits.map(s => s.total_upvotes || 0), 1);
+            const tbody = document.querySelector('#full-list-table tbody');
+            const rows = data.subreddits.map(sub => {
+                const tr = document.createElement('tr');
+
+                const tdName = document.createElement('td');
+                const link = document.createElement('button');
+                link.className = 'sub-link';
+                link.textContent = 'r/' + sub.name;
+                link.setAttribute('aria-label', `View report for r/${sub.name}`);
+                link.onclick = () => showReport(sub.name);
+                tdName.appendChild(link);
+
+                const tdCount = document.createElement('td');
+                const strong = document.createElement('strong');
+                strong.textContent = sub.count.toLocaleString();
+                tdCount.appendChild(strong);
+
+                const tdScore = document.createElement('td');
+                tdScore.className = 'score-cell';
+                const scoreNum = document.createElement('div');
+                scoreNum.className = 'score-num';
+                scoreNum.textContent = (sub.total_upvotes || 0).toLocaleString();
+                const barTrack = document.createElement('div');
+                barTrack.className = 'score-bar-track';
+                const barFill = document.createElement('div');
+                barFill.className = 'score-bar-fill';
+                barFill.style.width = Math.round((sub.total_upvotes || 0) / maxScore * 100) + '%';
+                barTrack.appendChild(barFill);
+                tdScore.appendChild(scoreNum);
+                tdScore.appendChild(barTrack);
+
+                const tdLast = document.createElement('td');
+                tdLast.style.cssText = 'font-size: 0.8rem; color: var(--text-secondary); white-space: nowrap;';
+                if (sub.last_report) {
+                    const d = new Date(sub.last_report * 1000);
+                    tdLast.textContent = d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+                } else {
+                    tdLast.textContent = '—';
+                }
+
+                const tdAudit = document.createElement('td');
+                const btn = document.createElement('button');
+                btn.className = 'btn-secondary';
+                btn.style.cssText = 'padding: 8px 15px; font-size: 0.7rem; flex: unset;';
+                btn.textContent = 'LINK';
+                btn.onclick = () => openSubreddit(sub.name);
+                tdAudit.appendChild(btn);
+
+                tr.append(tdName, tdCount, tdScore, tdLast, tdAudit);
+                return tr;
+            });
+            tbody.replaceChildren(...rows);
+        }
+
+        // --- Actions ---
+        function exportTxt() {
+            if (!allData) return;
+            const lines = allData.subreddits.map(s => `r/${s.name} (${s.count})`).join('\n');
+            const blob = new Blob([lines], { type: 'text/plain' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'antisemitism-subreddits.txt';
+            a.click();
+        }
+
+        function openSubreddit(name) {
+            window.open(`https://www.reddit.com/r/${name}`, '_blank', 'noopener,noreferrer');
+        }
+
+        function openAllInTabs() {
+            if (!allData) return;
+            const top10 = allData.subreddits.slice(0, 10);
+            if (confirm(`Open top ${top10.length} hotspots for review?`)) {
+                top10.forEach(s => openSubreddit(s.name));
+            }
+        }
+
+        // --- Modal ---
+        function buildTimelineChart(posts) {
+            const buckets = {};
+            posts.forEach(post => {
+                if (!post.created_utc) return;
+                const d = new Date(post.created_utc * 1000);
+                const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+                buckets[key] = (buckets[key] || 0) + 1;
+            });
+            const labels = Object.keys(buckets).sort();
+            const values = labels.map(k => buckets[k]);
+
+            if (modalChart) modalChart.destroy();
+            const mCtx = document.getElementById('modalChart').getContext('2d');
+            modalChart = new Chart(mCtx, {
+                type: 'bar',
+                data: {
+                    labels,
+                    datasets: [{ data: values, backgroundColor: '#ffffff', borderRadius: 0, hoverBackgroundColor: '#aaaaaa' }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    scales: {
+                        x: { grid: { display: false }, ticks: { color: '#aaa', font: { size: 10 }, maxTicksLimit: 12, maxRotation: 0 } },
+                        y: { beginAtZero: true, grid: { color: '#222' }, ticks: { color: '#aaa', font: { size: 10 }, precision: 0 } }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { backgroundColor: '#000', titleColor: '#fff', bodyColor: '#888', borderColor: '#222', borderWidth: 1 }
+                    }
+                }
+            });
+        }
 
         function showReport(subName) {
-            socket.emit('get_report', subName);
+            if (!allData) return;
+            const sub = allData.subreddits.find(s => s.name === subName.toLowerCase());
+            document.getElementById('modalTitle').textContent = `AUDIT REPORT: r/${subName.toUpperCase()}`;
+            document.getElementById('modal-posts-label').textContent = `All Posts (${sub ? sub.posts.length : 0})`;
+            const body = document.getElementById('modalBody');
+            body.replaceChildren();
+
+            if (!sub || sub.posts.length === 0) {
+                if (modalChart) { modalChart.destroy(); modalChart = null; }
+                const p = document.createElement('p');
+                p.style.color = 'var(--text-secondary)';
+                p.textContent = 'No posts found.';
+                body.appendChild(p);
+            } else {
+                buildTimelineChart(sub.posts);
+
+                sub.posts.forEach(post => {
+                    const div = document.createElement('div');
+                    div.className = 'report-post' + (post.archived ? ' is-archived' : '');
+
+                    const titleSpan = document.createElement('span');
+                    titleSpan.className = 'report-title';
+                    titleSpan.textContent = post.title;
+
+                    const meta = document.createElement('div');
+                    meta.className = 'post-meta';
+
+                    if (post.created_utc) {
+                        const date = new Date(post.created_utc * 1000);
+                        const dateItem = document.createElement('div');
+                        dateItem.className = 'post-meta-item';
+                        dateItem.innerHTML = `DATE <span>${date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}</span>`;
+                        meta.appendChild(dateItem);
+                    }
+
+                    const upvoteItem = document.createElement('div');
+                    upvoteItem.className = 'post-meta-item';
+                    upvoteItem.innerHTML = `UPVOTES <span>${(post.upvotes || 0).toLocaleString()}</span>`;
+                    meta.appendChild(upvoteItem);
+
+                    if (post.archived) {
+                        const badge = document.createElement('span');
+                        badge.className = 'badge-archived';
+                        badge.textContent = 'Archived';
+                        meta.appendChild(badge);
+                    }
+
+                    const link = document.createElement('a');
+                    link.href = post.url;
+                    link.target = '_blank';
+                    link.rel = 'noopener noreferrer';
+                    link.className = 'report-link';
+                    link.innerHTML = 'VIEW ORIGINAL POST &rarr;';
+
+                    div.appendChild(titleSpan);
+                    div.appendChild(meta);
+                    div.appendChild(link);
+                    body.appendChild(div);
+                });
+            }
+
+            document.getElementById('reportModal').style.display = 'block';
         }
 
         function closeModal() {
             document.getElementById('reportModal').style.display = 'none';
         }
 
-        function openAllInTabs() {
-            if (currentSubreddits.length === 0) return;
-            const batchSize = 10;
-            const toOpen = currentSubreddits.slice(0, batchSize);
-            if (confirm(`Open top ${toOpen.length} subreddits?`)) {
-                toOpen.forEach(sub => window.open(`https://www.reddit.com/r/${sub[0]}`, '_blank'));
-            }
-        }
-
-        socket.on('data_update', (data) => {
-            currentSubreddits = data.top_subreddits;
-            document.getElementById('processed-count').innerText = data.total_processed;
-            document.getElementById('status-text').innerText = data.status;
-            document.getElementById('subreddit-count').innerText = currentSubreddits.length;
-            
-            if (currentSubreddits.length > 0) {
-                const newHeight = Math.max(500, currentSubreddits.length * 30);
-                document.getElementById('chart-parent').style.height = newHeight + "px";
-                chart.data.labels = currentSubreddits.map(item => 'r/' + item[0]);
-                chart.data.datasets[0].data = currentSubreddits.map(item => item[1]);
-                chart.update('none');
-            }
-
-            const tbody = document.querySelector('#full-list-table tbody');
-            if (currentSubreddits.length < 50 || data.total_processed % 50 === 0 || data.status === "Finished") {
-                let html = '';
-                currentSubreddits.forEach(sub => {
-                    html += `<tr>
-                        <td><span class="sub-link" onclick="showReport('${sub[0]}')">r/${sub[0]}</span></td>
-                        <td>${sub[1]}</td>
-                        <td><button style="padding: 4px 8px; font-size: 0.7rem;" onclick="openSubreddit('${sub[0]}')">Open Reddit</button></td>
-                    </tr>`;
-                });
-                tbody.innerHTML = html;
-            }
-        });
-
-        socket.on('report_data', (data) => {
-            const modal = document.getElementById('reportModal');
-            document.getElementById('modalTitle').innerText = `Transparency Report: r/${data.subreddit}`;
-            const body = document.getElementById('modalBody');
-            body.innerHTML = '';
-            
-            data.posts.forEach(post => {
-                const postDiv = document.createElement('div');
-                postDiv.className = 'report-post';
-                postDiv.innerHTML = `
-                    <span class="report-title">${post.title}</span>
-                    <a href="${post.url}" target="_blank" class="report-link">View original post on r/AntiSemitismInReddit &rarr;</a>
-                `;
-                body.appendChild(postDiv);
-            });
-            modal.style.display = 'block';
-        });
-
-        window.onclick = (event) => {
-            const modal = document.getElementById('reportModal');
-            if (event.target == modal) closeModal();
+        window.onclick = (e) => {
+            if (e.target === document.getElementById('reportModal')) closeModal();
         };
+
+        init();
     </script>
 </body>
 </html>
